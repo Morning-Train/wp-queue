@@ -8,8 +8,11 @@ class Module extends AbstractModule {
 
     protected bool $use_views = false;
 
+    /**
+     * @param string|array $job_queues
+     */
     public function __construct($job_queues = array('job_queue')) {
-        foreach($job_queues as $job_queue) {
+        foreach((array) $job_queues as $job_queue) {
             static::registerJobQueue($job_queue);
         }
     }
@@ -22,7 +25,12 @@ class Module extends AbstractModule {
         \Morningtrain\WP\CLICommand\Module::registerFolder($this->getNamedDirPath('wp-cli_commands'));
     }
 
-    public static function registerJobQueue($job_queue) {
+    /**
+     * Regiser job queue
+     * @param string $job_queue
+     * @return void
+     */
+    public static function registerJobQueue($job_queue = 'job_queue') {
         Worker::register($job_queue);
     }
 }

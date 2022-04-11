@@ -31,9 +31,13 @@ abstract class AbstractJob {
         return Worker::getInstance(static::getWorkerSlug());
     }
 
+    /**
+     * Dispatch a job
+     * @param mixed $args Arguments to send to the callback when doing the job.
+     * @param string|\DateTime $date Date and time the job should run, if null it will run as soon as possible.
+     * @return bool
+     */
     public static function dispatch($args, $date = null) {
         return static::getWorker()->createJob(static::getCallable(), $args, $date, static::$priority);
     }
-
-    abstract static function handle();
 }
