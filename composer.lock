@@ -1,0 +1,50 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "1c7774e63ad9e2a01783a250578c94cc",
+    "packages": [
+        {
+            "name": "morningtrain/wp-cli-command",
+            "version": "0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://backuptrain.dk/internal-projects/wp/wp-cli-commnad.git",
+                "reference": "17ccee2a500c371eacfd348e15f5aacaaaa5fda9"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://backuptrain.dk/api/v4/projects/1049/packages/composer/archives/morningtrain/wp-cli-command.zip?sha=17ccee2a500c371eacfd348e15f5aacaaaa5fda9",
+                "reference": "17ccee2a500c371eacfd348e15f5aacaaaa5fda9",
+                "shasum": ""
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Morningtrain\\WP\\CLICommand\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "authors": [
+                {
+                    "name": "Martin Schadegg Brønniche",
+                    "email": "ms@morningtrain.dk"
+                }
+            ],
+            "description": "Create WP CLI commands"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "stable",
+    "stability-flags": [],
+    "prefer-stable": false,
+    "prefer-lowest": false,
+    "platform": [],
+    "platform-dev": [],
+    "plugin-api-version": "2.2.0"
+}
