@@ -37,7 +37,7 @@ abstract class AbstractJob {
      * @param string|\DateTime $date Date and time the job should run, if null it will run as soon as possible.
      * @return bool
      */
-    public static function dispatch($args, $date = null) {
+    public static function dispatch($args = null, $date = null) {
         return static::getWorker()->createJob(static::getCallable(), $args, $date, static::$priority);
     }
 }
