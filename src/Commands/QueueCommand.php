@@ -1,11 +1,20 @@
-<?php namespace Morningtrain\WP\Queue;
+<?php namespace Morningtrain\WP\Queue\Commands;
 
-use Morningtrain\WP\CLICommand\Abstracts\CLICommand;
 use Morningtrain\WP\Queue\Classes\Worker;
 
-class QueueCommand extends CLICommand {
+class QueueCommand {
 
 	protected static $command = 'queue';
+
+    public static function register() : void
+    {
+        // Do not load if CLI is not running
+        if(!defined('WP_CLI') || !WP_CLI || !class_exists('WP_CLI')) {
+            return;
+        }
+
+        \WP_CLI::add_command(static::$command, static::class);
+    }
 
 	/**
 	 * Starts a queue worker
@@ -23,7 +32,7 @@ class QueueCommand extends CLICommand {
 	public function start($args, $assoc_args) {
 		\WP_CLI::log("Starting queue worker: {$args[0]}");
 
-        $worker = Worker::getWorker($args[0]);
+        $worker = Worker::getInstance($args[0]);
 
 		if(empty($worker)) {
 			\WP_CLI::error('Queue does not exist');
@@ -60,7 +69,7 @@ class QueueCommand extends CLICommand {
 		} else {
 			\WP_CLI::log("Stopping queue worker: {$args[0]}");
 
-            $queues = array(Worker::getWorker($args[0]));
+            $queues = array(Worker::getInstance($args[0]));
 
 			if(empty($queues)) {
 				\WP_CLI::error('Queue does not exist');
@@ -70,7 +79,7 @@ class QueueCommand extends CLICommand {
 		foreach($queues as $queue) {
 			$queue->stop();
 
-			\WP_CLI::log("Queue worker stopped: {$queue->getContextSlug()}");
+			\WP_CLI::log("Queue worker stopped: {$queue->getWorkerSlug()}");
 		}
 	}
 
@@ -97,7 +106,7 @@ class QueueCommand extends CLICommand {
 	public function run($args, $assoc_args) {
 		\WP_CLI::log("Running job {$args[1]} in queue worker {$args[0]}");
 
-        $worker = Worker::getWorker($args[0]);
+        $worker = Worker::getInstance($args[0]);
 
 		if(empty($worker)) {
 			return \WP_CLI::error('Queue does not exist');
@@ -141,7 +150,7 @@ class QueueCommand extends CLICommand {
 		foreach($_queues as $_queue) {
 
 			$queues[] = array(
-				'Name' => $_queue->getContextSlug(),
+				'Name' => $_queue->getWorkerSlug(),
 				'Table' => $_queue->getTableName(),
 				'Active workers' => count($_queue->getActiveWorkers()),
 				'Last stopped' => $_queue->getStopTime()

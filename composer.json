@@ -1,9 +1,8 @@
 {
     "name": "morningtrain/wp-queue",
     "description": "Create Queue system for WP",
-    "minimum-stability": "stable",
-    "license": "proprietary",
-    "version": "v0.1.1",
+    "minimum-stability": "dev",
+    "license": "MIT",
     "authors": [
         {
             "name": "Martin Schadegg Brønniche",
@@ -15,13 +14,7 @@
             "Morningtrain\\WP\\Queue\\": "src/"
         }
     },
-    "repositories": {
-        "backuptrain.dk/267": {
-            "type":"composer",
-            "url": "https://backuptrain.dk/api/v4/group/267/-/packages/composer/packages.json"
-        }
-    },
     "require": {
-        "morningtrain/wp-cli-command": "^0.1.0"
+        "morningtrain/php-loader": "^0.3"
     }
 }
