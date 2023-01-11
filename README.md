@@ -8,7 +8,9 @@ Queue system for WordPress.
 - [Getting Started](#getting-started)
   - [Installation](#installation)
 - [Usage](#usage)
-  - []
+  - [Register Worker](#register-worker)
+  - [Create a Job](#create-a-job)
+  - [Running the Queue Worker](#running-the-queue-worker)
 - [Credits](#credits)
 - [License](#license)
 
@@ -32,7 +34,7 @@ Install with composer.
 
 ## Usage
 
-### Register Job Queue
+### Register Worker
 
 To get started with the module simply register a job queue `\Morningtrain\WP\Queue\Queue::registerWorker()`.
 
