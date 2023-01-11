@@ -1,43 +1,41 @@
 <?php namespace Morningtrain\WP\Queue\Abstracts;
 
 use Morningtrain\WP\Queue\Classes\Worker;
+use DateTime;
 
 abstract class AbstractJob {
 
-    protected static $priority = 10;
-    protected static $worker = 'job_queue';
+    protected static int $priority = 10;
+    protected static string $worker = 'job_queue';
 
-    protected static function getCallback() {
-        return 'handle';
+    protected static function getCallback() : Callable
+    {
+        return [static::class, 'handle'];
     }
 
-    protected static function getComponent() {
-        return static::class;
-    }
-
-    protected static function getCallable() {
-        return [static::getComponent(), static::getCallback()];
-    }
-
-    protected static function getPriority() {
+    protected static function getPriority() : int
+    {
         return static::$priority;
     }
 
-    protected static function getWorkerSlug() {
+    protected static function getWorkerSlug() : string
+    {
         return static::$worker;
     }
 
-    protected static function getWorker() {
+    protected static function getWorker() : Worker
+    {
         return Worker::getInstance(static::getWorkerSlug());
     }
 
     /**
      * Dispatch a job
      * @param mixed $args Arguments to send to the callback when doing the job.
-     * @param string|\DateTime $date Date and time the job should run, if null it will run as soon as possible.
+     * @param string|DateTime $date Date and time the job should run, if null it will run as soon as possible.
      * @return bool
      */
-    public static function dispatch($args = null, $date = null) {
-        return static::getWorker()->createJob(static::getCallable(), $args, $date, static::$priority);
+    public static function dispatch(mixed $args = null, string|DateTime $date = null) : int|false
+    {
+        return static::getWorker()->createJob(static::getCallback(), $args, $date, static::getPriority());
     }
 }

@@ -1,47 +1,77 @@
 <?php namespace Morningtrain\WP\Queue\Classes;
 
 use Morningtrain\WP\Core\Abstracts\AbstractSingletonContext;
+use DateTime;
 
-class Worker extends AbstractSingletonContext {
+class Worker {
 
-    protected $unique_identifier = null;
-    protected $started_time = null;
+    protected static array $instances = [];
+
+    protected string $workerSlug;
+
+    protected ?string $uniqueIdentifier = null;
+    protected DateTime|null $startedTime = null;
 
     /**
      * Sleep time if no job is found (in seconds)
      * @var int
      */
-    protected static $sleep_time = 10;
+    protected static $sleepTime = 10;
 
-    protected function __construct($context_slug)
+    public static function getInstance(string $workerSlug) : ?static
     {
-        parent::__construct($context_slug);
-    }
+        $calledClass = get_called_class();
 
-    public static function register($context_slug) {
-        $worker = static::getInstance($context_slug);
-
-        $worker->maybeCreateDBTable();
-    }
-
-    public static function getWorker($context_slug): ? self
-    {
-        $called_class = get_called_class();
-
-        if(!isset(self::$instances[$called_class][$context_slug]))
+        if(!isset(self::$instances[$calledClass][$workerSlug]))
         {
             return null;
         }
 
-        return self::$instances[$called_class][$context_slug];
+        return static::$instances[$calledClass][$workerSlug];
     }
 
+    public static function createInstance(string $workerSlug) : static
+    {
+        $instance = new static($workerSlug);
+
+        $className = (new \ReflectionClass($instance))->getName();
+
+        static::$instances[$className][$workerSlug] = $instance;
+
+        return static::$instances[$className][$workerSlug];
+    }
+
+    public static function getOrCreateInstance(string $workerSlug) : static
+    {
+        $instance = static::getInstance($workerSlug);
+
+        if(empty($instance)) {
+            $instance = self::createInstance($workerSlug);
+        }
+
+        return $instance;
+    }
+
+    public static function register(string $workerSlug) : static
+    {
+        $worker = static::getOrCreateInstance($workerSlug);
+
+        $worker->maybeCreateDBTable();
+
+        return $worker;
+    }
+
+
+    protected function __construct(string $workerSlug)
+    {
+        $this->workerSlug = $workerSlug;
+    }
 
     /**
      * Maybe create DB table
      * @return void
      */
-    protected function maybeCreateDBTable()
+    protected function maybeCreateDBTable() : void
     {
         global $wpdb;
 
@@ -80,88 +110,102 @@ class Worker extends AbstractSingletonContext {
      * Get table name
      * @return string
      */
-    public function getTableName($prefixed = true) {
-        if(!empty($this->getContextSlug())) {
-            $_table_name = '';
+    public function getTableName(bool $prefixed = true) : string
+    {
+        if(!empty($this->getWorkerSlug())) {
+            $tableName = '';
 
             if(isset($prefixed)) {
                 global $wpdb;
 
-                $_table_name .= $wpdb->prefix;
+                $tableName .= $wpdb->prefix;
             }
 
-            $_table_name .= $this->getContextSlug();
+            $tableName .= $this->getWorkerSlug();
 
-            return $_table_name;
+            return $tableName;
         }
 
-        return null;
+        return '';
     }
 
     /**
      * Get Context slug
      * @return string
      */
-    public function getContextSlug() {
-        return $this->context_slug;
+    public function getWorkerSlug() {
+        return $this->workerSlug;
     }
 
     /**
      * Start and run QueueWorker
      */
-    public function start()
+    public function start() : void
     {
         set_time_limit(0);
 
         while ($this->shouldRun()) {
             if (!$this->handleNextJob()) {
-                sleep(static::$sleep_time);
+                sleep(static::getSleepTime());
             }
         }
 
         $this->clearQueueInfo();
     }
 
+    protected static function getSleepTime() : int
+    {
+        return static::$sleepTime;
+    }
+
     /**
      * Get started time for current run
-     * @return null
+     * @return DateTime|string
      */
-    protected function getStartedTime()
+    protected function getStartedTime(?string $format = null) : DateTime|string
     {
-        if (empty($this->started_time)) {
-            $this->started_time = current_time('mysql');
+        if(empty($this->startedTime)) {
+            $this->startedTime = new DateTime(current_time('mysql'));
         }
 
-        return $this->started_time;
+        if(!empty($format)) {
+            if($format === 'mysql') {
+                return $this->startedTime->format('Y-m-d H:i:s');
+            }
+
+            return $this->startedTime->format($format);
+        }
+
+        return $this->startedTime;
     }
 
     /**
      * Unique identifier to identify running tasks
      * @return null
      */
-    protected function getUniqueIdentifier()
+    protected function getUniqueIdentifier() : string
     {
-        if (empty($this->unique_identifier)) {
-            $this->unique_identifier = md5($this->getContextSlug() . $this->getStartedTime() . uniqid(true));
+        if(empty($this->uniqueIdentifier)) {
+            $this->uniqueIdentifier = md5($this->getWorkerSlug() . $this->getStartedTime('mysql') . uniqid(true));
         }
 
-        return $this->unique_identifier;
+        return $this->uniqueIdentifier;
     }
 
     /**
      * Update running and start time
      * @return void
      */
-    protected function updateRunningTime()
+    protected function updateRunningTime() : void
     {
         set_transient(
             $this->getTransientName(),
             array(
                 'start_time' => $this->getStartedTime(),
-                'last_heartbeat' => current_time('mysql'),
+                'last_heart_beat' => current_time('mysql'),
                 'unique_identifier' => $this->getUniqueIdentifier()
             ),
-            max(static::$sleep_time * 2, 60)
+            max(static::getSleepTime() * 2, 60)
         );
     }
 
@@ -169,35 +213,37 @@ class Worker extends AbstractSingletonContext {
      * Get name of transient
      * @return string
      */
-    protected function getTransientName() {
-        return 'job_queue-' . $this->getContextSlug() . '-' . $this->getUniqueIdentifier();
+    protected function getTransientName() : string
+    {
+        return 'job_queue-' . $this->getWorkerSlug() . '-' . $this->getUniqueIdentifier();
     }
 
     /**
      * Fetch next job and handle it
      * @return bool
      */
-    protected function handleNextJob()
+    protected function handleNextJob() : bool
     {
         global $wpdb;
-        $table_name = $this->getTableName();
+        $tableName = $this->getTableName();
         $now = current_time('mysql');
 
         // Avoid mysql errors with DB gone
-        if (!@$wpdb->check_connection()) {
+        if(!@$wpdb->check_connection()) {
             return false;
         }
 
-        $wpdb->query("LOCK TABLES $table_name WRITE");
-        $job = $wpdb->get_row("SELECT * FROM {$table_name} WHERE run_date IS NULL AND date <= '{$now}' ORDER BY priority, date, id ASC");
+        $wpdb->query("LOCK TABLES $tableName WRITE");
 
-        if (!empty($job)) {
+        $job = $wpdb->get_row("SELECT * FROM {$tableName} WHERE run_date IS NULL AND date <= '{$now}' ORDER BY priority, date, id ASC");
+
+        if(!empty($job)) {
             $this->updateRunDate($job->id);
         }
 
         $wpdb->query("UNLOCK TABLES");
 
-        if (empty($job)) {
+        if(empty($job)) {
             return false;
         }
 
@@ -206,18 +252,19 @@ class Worker extends AbstractSingletonContext {
         return true;
     }
 
-    public function getJob($id) {
+    public function getJob(int $id) : object
+    {
         global $wpdb;
-        $table_name = $this->getTableName();
+        $tableName = $this->getTableName();
 
-        return $wpdb->get_row("SELECT * FROM {$table_name} WHERE id = {$id} ORDER BY priority, date, id ASC");
+        return $wpdb->get_row("SELECT * FROM {$tableName} WHERE id = {$id}");
     }
 
     /**
      * Flush caches:
      * WP cache, ACF cache
      */
-    protected static function flushCache()
+    protected static function flushCache() : void
     {
         wp_cache_flush();
 
@@ -237,13 +284,15 @@ class Worker extends AbstractSingletonContext {
             }
 
         }
+
+        gc_collect_cycles();
     }
 
     /**
      * Shall the queue still run?
      * @return bool
      */
-    protected function shouldRun()
+    protected function shouldRun() : bool
     {
         // Flush cache to avoid cached options and meta data
         static::flushCache();
@@ -257,26 +306,27 @@ class Worker extends AbstractSingletonContext {
      * Is a stop time set in option and is it greater than start time?
      * @return bool
      */
-    protected function shouldStop()
+    protected function shouldStop() : bool
     {
-        $stop_time = $this->getStopTime();
+        $stopTime = $this->getStopTime();
 
-        return !empty($stop_time) && $stop_time >= $this->getStartedTime();
+        return !empty($stopTime) && $stopTime >= $this->getStartedTime('mysql');
     }
 
     /**
      * Get stop option name
      * @return string
      */
-    public function getStopOptionName() {
-        return 'job_queue-' . $this->getContextSlug() . '-stop';
+    public function getStopOptionName() : string
+    {
+        return 'job_queue-' . $this->getWorkerSlug() . '-stop';
     }
 
     /**
      * Get stop time option for queue type
-     * @return false|mixed|void
+     * @return mixed
      */
-    public function getStopTime()
+    public function getStopTime() : mixed
     {
         return get_option($this->getStopOptionName());
     }
@@ -285,7 +335,7 @@ class Worker extends AbstractSingletonContext {
      * Add a stop marker to the database so running jobs will stop
      * @return void
      */
-    public function stop()
+    public function stop() : void
     {
         update_option($this->getStopOptionName(), current_time('mysql'), false);
     }
@@ -294,15 +344,15 @@ class Worker extends AbstractSingletonContext {
      * return info about workers running (OBS: will not work if Memcache, Redis or similar is activated)
      * @return array
      */
-    public function getActiveWorkers()
+    public function getActiveWorkers() : array
     {
         global $wpdb;
 
-        $transient_name = '_transient_job_queue_' . $this->getContextSlug() . '-%';
+        $transientName = '_transient_job_queue_' . $this->getWorkerSlug() . '-%';
 
         $sql = "SELECT option_name 
 				FROM {$wpdb->options} 
-				WHERE option_name LIKE '{$transient_name}'";
+				WHERE option_name LIKE '{$transientName}'";
 
         $results = $wpdb->get_results($sql);
 
@@ -311,7 +361,7 @@ class Worker extends AbstractSingletonContext {
         foreach ($results as $result) {
             $worker = get_transient($result->option_name);
 
-            if (!empty($worker['last_heartbeat']) && new \DateTime($worker['last_heartbeat']) < (new \DateTime(current_time('mysql')))->modify('-' . max(static::$sleep_time * 2, 60) . ' seconds')) {
+            if (!empty($worker['last_heartbeat']) && new \DateTime($worker['last_heartbeat']) < (new \DateTime(current_time('mysql')))->modify('-' . max(static::getSleepTime() * 2, 60) . ' seconds')) {
                 delete_transient($result->option_name);
                 continue;
             }
@@ -326,7 +376,7 @@ class Worker extends AbstractSingletonContext {
      * Delete info about this worker
      * @return void
      */
-    public function clearQueueInfo()
+    public function clearQueueInfo() : void
     {
         delete_transient($this->getTransientName());
     }
@@ -344,7 +394,7 @@ class Worker extends AbstractSingletonContext {
      *
      * @return bool             true if job was successfully created
      */
-    public function createJob($callback, $arg = NULL, $date = NULL, $priority = 10)
+    public function createJob($callback, $arg = NULL, $date = NULL, $priority = 10) : int|false
     {
         global $wpdb;
 
@@ -352,9 +402,9 @@ class Worker extends AbstractSingletonContext {
             $date = $date->format('Y-m-d H:i:s');
         }
 
-        $job_props = static::prepareJob($callback, $arg, $date, $priority);
+        $jobProps = static::prepareJob($callback, $arg, $date, $priority);
 
-        return $wpdb->insert($this->getTableName(), $job_props);
+        return $wpdb->insert($this->getTableName(), $jobProps);
    }
 
     /**
@@ -365,7 +415,7 @@ class Worker extends AbstractSingletonContext {
      * @param $priority
      * @return array
      */
-    protected static function prepareJob($callback, $args = array(), $date = NULL, $priority = 10)
+    protected static function prepareJob($callback, $args = array(), $date = NULL, $priority = 10) : array
     {
         $component = NULL;
         $date = (empty($date)) ? \current_time('mysql') : $date;
@@ -375,7 +425,7 @@ class Worker extends AbstractSingletonContext {
             $callback = $callback[1];
         }
 
-        $job_props = array(
+        $jobProps = array(
             'date' => $date,
             'callback' => $callback,
             'component' => $component,
@@ -384,13 +434,13 @@ class Worker extends AbstractSingletonContext {
             'created_date' => current_time('mysql')
         );
 
-        return $job_props;
+        return $jobProps;
     }
 
     /**
      * Handle job
      */
-    public function handleJob($job, $untouched = false)
+    public function handleJob($job, $untouched = false) : mixed
     {
         $result = $this->doJob($job->component, $job->callback, json_decode($job->args, true));
 
@@ -409,7 +459,7 @@ class Worker extends AbstractSingletonContext {
      * Do the job
      * @return false|mixed|string
      */
-    public function doJob($component = null, $callback = null, $args = array())
+    public function doJob($component = null, $callback = null, $args = array()) : mixed
     {
         try {
             if (!empty($component)) {
@@ -437,35 +487,36 @@ class Worker extends AbstractSingletonContext {
     /**
      * Update run date
      */
-    public function updateRunDate($id)
+    public function updateRunDate($id) : int|false
     {
         global $wpdb;
 
-        return $wpdb->update($this->getTableName(), array('run_date' => current_time('mysql')), array('id' => $id));
+        return $wpdb->update($this->getTableName(), array('run_date' => current_time('mysql'), 'updated_date' => current_time('mysql')), array('id' => $id));
     }
 
     /**
      * Update result
      * @param $result
      */
-    public function updateResult($id, $result)
+    public function updateResult($id, $result) : int|false
     {
         global $wpdb;
 
-        return $wpdb->update($this->getTableName(), array('result' => $result), array('id' => $id));
+        return $wpdb->update($this->getTableName(), array('result' => $result, 'updated_date' => current_time('mysql')), array('id' => $id));
     }
 
     /**
      * Get instances
      * @return static[]
      */
-    public static function getWorkers() {
-        $called_class = get_called_class();
+    public static function getWorkers() : array
+    {
+        $calledClass = get_called_class();
 
-        if(empty(static::$instances[$called_class])) {
+        if(empty(static::$instances[$calledClass])) {
             return array();
         }
 
-        return static::$instances[$called_class];
+        return static::$instances[$calledClass];
     }
 }

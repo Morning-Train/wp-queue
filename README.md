@@ -1,79 +1,149 @@
 # Morningtrain\WP\Queue
 
-Queue system for WordPress
+Queue system for WordPress.
+
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+- [Usage](#usage)
+  - []
+- [Credits](#credits)
+- [License](#license)
+
+## Introduction
+
+This package is made to dispatch jobs to a queue system.
+
+It is implementet with WP CLI so it can be runned from the command line.
 
 ## Getting started
 
-To get started with the module simply construct an instance of `\Morningtrain\WP\Queue\Module()` and pass it to the `addModule()` method on your project instance.
+To get started install the package as described below in [Installation](#installation).
 
-You can change name of the job queue from default `job_queue` or you can pass an array with more job queue names to create more job queues.
+To use the package have a look at [Usage](#usage)
 
-### Example
+### Installation
+
+Install with composer.
+
+```composer require morningtrain/wp-queue```
+
+## Usage
+
+### Register Job Queue
+
+To get started with the module simply register a job queue `\Morningtrain\WP\Queue\Queue::registerWorker()`.
+
+You can change name of the job queue from default `job_queue`.
 
 ```php
-// functions.php
-require __DIR__ . "/vendor/autoload.php";
-
-use Morningtrain\WP\Core\Theme;
-
-Theme::init();
-
-// Add our module
-Theme::getInstance()->addModule(new \Morningtrain\WP\Queue\Module());
+\Morningtrain\WP\Queue\Queue::registerWorker();
 ```
 
-## Use outside project (other modules)
-You can call `\Morningtrain\WP\Queue\Module::registerJobQueue($queue_slug)` where `$queue_slug` is a slug for the queue also used for the DB table (defaults to job_queue).
+### Create a Job
+Jobs can be created by extending `Morningtrain\WP\Queue\Abstracts\AbstractJob` and create a `handle` method.
 
-### Example
-```php
-// Module.php
-class Module extends AbstractModule {
-    public function init() {
-        parent::init();
-
-        \Morningtrain\WP\Queue\Module::registerJobQueue();
-    }
-}
-```
-
-## Create a Job
-Jobs can be created by extending `Morningtrain\WP\Queue\Abstracts\AbstractJob` and create a `handle` method, if in project context you can place it inside the `Jobs` folder.
-
-You can define which job_queue the job should use by setting the $worker parameter to the job queue slug.
+You can define which job_queue the job should use by setting the `$worker` parameter to the job queue slug.
 
 Now you can put a job in the queue by calling the static method `dispatch` on your Job class.
 
-### Example
 ```php
 // Job/TestJob.php
-
 use Morningtrain\WP\Queue\Abstracts\AbstractJob;
 
 class TestJob extends AbstractJob {
 
-  public static function handle($args) {
+  public static function handle(mixed $args) : mixed
+  {
+    // Do something
     return 'testing...';
   }
 }
+```
 
+```php 
 // Another file
 TestJob::dispatch('test_arg');
 ```
 
-## Alternatively job creation
+#### Alternatively Job Creation
 Jobs can alternativley be created directly from the worker, by passing a callback to the `createJob` method.
 
-### Example
 ```php
 \Morningtrain\WP\Queue\Classes\Worker::getWorker('job_queue')->createJob($callback, $args);
 ```
 
-## Arguments
+#### Arguments
 If you use arguments in your jobs, you have to be aware, that we are using `call_user_func_array`. 
 So if you pass an array, you need to have same number of arguments in your method as you have in your array. And if keyed, the arguments in the method must be called the same as the keys.
 
 If you do not know the number of arguments in your array or you just need to work on an data array, you can use `...$args` in your method.
 Or you can wrap your array in an extra array containing only the one argument.
 
-See more about `call_user_func_arrey` here: https://www.php.net/manual/en/function.call-user-func-array.php
+See more about `call_user_func_arrey` on the [PHP documentation](https://www.php.net/manual/en/function.call-user-func-array.php)
+
+### Running the Queue Worker
+Use WP CLI to run the job queue. See [WP CLI documentation](https://wp-cli.org/).
+
+#### Start Worker
+
+Start job queue with the `wp queue start` command and the worker slug.
+
+```
+wp queue start job_queue
+```
+
+> **Note**
+> 
+> The worker will run until it is manually stopped or the terminal is closed. 
+> You should use a process monitor such as [Supervisor](http://supervisord.org/index.html) to make sure the process does not stop unintended.
+
+You can run multiple workers simultaneously. 
+
+#### Stop Worker
+
+To stop a worker that you can not stop by closing you terminal, you can use the `stop` command with the worker slug.
+
+```
+wp queue stop job_queue
+```
+
+To stop all workers use `all` instead of worker slug.
+
+```
+wp queue stop all
+```
+
+#### List available workers
+To list available workers and their status, use the `list` command
+
+```
+wp queue list
+```
+
+#### Process a Specific Job
+
+Call `wp queue run` with the worker slug and the job ID to process the specific job.
+
+```
+wp queue run job_queue 99
+```
+
+> **Note**
+>
+> You can use --untouched to not set run_date and result
+> ```wp queue run jon_queue 99 --untouched```
+> 
+> You can use --force to force the job to run even though it has run before
+> ```wp queue run jon_queue 99 --force```
+
+## Credits
+
+- [Martin Schadegg Brønniche](https://github.com/mschadegg)
+- [All Contributors](../../contributors)
+
+## License
+
+The MIT License (MIT). Please see [License File](LICENSE) for more information.
