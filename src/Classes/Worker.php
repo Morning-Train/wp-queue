@@ -256,7 +256,7 @@ class Worker {
         return true;
     }
 
-    public function getJob(int $id): object
+    public function getJob(int $id): ?object
     {
         global $wpdb;
         $tableName = $this->getTableName();
