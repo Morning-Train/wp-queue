@@ -1,6 +1,5 @@
 <?php namespace Morningtrain\WP\Queue\Classes;
 
-use Morningtrain\WP\Core\Abstracts\AbstractSingletonContext;
 use DateTime;
 
 class Worker {
@@ -18,7 +17,7 @@ class Worker {
      */
     protected static $sleepTime = 10;
 
-    public static function getInstance(string $workerSlug) : ?static
+    public static function getInstance(string $workerSlug): ?static
     {
         $calledClass = get_called_class();
 
@@ -30,7 +29,7 @@ class Worker {
         return static::$instances[$calledClass][$workerSlug];
     }
 
-    public static function createInstance(string $workerSlug) : static
+    public static function createInstance(string $workerSlug): static
     {
         $instance = new static($workerSlug);
 
@@ -41,7 +40,7 @@ class Worker {
         return static::$instances[$className][$workerSlug];
     }
 
-    public static function getOrCreateInstance(string $workerSlug) : static
+    public static function getOrCreateInstance(string $workerSlug): static
     {
         $instance = static::getInstance($workerSlug);
 
@@ -52,7 +51,12 @@ class Worker {
         return $instance;
     }
 
-    public static function register(string $workerSlug) : static
+    public static function getWorker(string $workerSlug): static
+    {
+        return static::getOrCreateInstance($workerSlug);
+    }
+
+    public static function register(string $workerSlug): static
     {
         $worker = static::getOrCreateInstance($workerSlug);
 
@@ -60,7 +64,6 @@ class Worker {
 
         return $worker;
     }
-
 
     protected function __construct(string $workerSlug)
     {
@@ -71,11 +74,11 @@ class Worker {
      * Maybe create DB table
      * @return void
      */
-    protected function maybeCreateDBTable() : void
+    protected function maybeCreateDBTable(): void
     {
         global $wpdb;
 
-        $version = '1.0.0';
+        $version = '2.0.0';
 
         if ($version == \get_option($this->getTableName() . '_db_version')) {
             return;
@@ -110,7 +113,7 @@ class Worker {
      * Get table name
      * @return string
      */
-    public function getTableName(bool $prefixed = true) : string
+    public function getTableName(bool $prefixed = true): string
     {
         if(!empty($this->getWorkerSlug())) {
             $tableName = '';
@@ -133,14 +136,15 @@ class Worker {
      * Get Context slug
      * @return string
      */
-    public function getWorkerSlug() {
+    public function getWorkerSlug(): string
+    {
         return $this->workerSlug;
     }
 
     /**
      * Start and run QueueWorker
      */
-    public function start() : void
+    public function start(): void
     {
         set_time_limit(0);
 
@@ -153,7 +157,7 @@ class Worker {
         $this->clearQueueInfo();
     }
 
-    protected static function getSleepTime() : int
+    protected static function getSleepTime(): int
     {
         return static::$sleepTime;
     }
@@ -162,7 +166,7 @@ class Worker {
      * Get started time for current run
      * @return DateTime|string
      */
-    protected function getStartedTime(?string $format = null) : DateTime|string
+    protected function getStartedTime(?string $format = null): DateTime|string
     {
         if(empty($this->startedTime)) {
             $this->startedTime = new DateTime(current_time('mysql'));
@@ -183,7 +187,7 @@ class Worker {
      * Unique identifier to identify running tasks
      * @return null
      */
-    protected function getUniqueIdentifier() : string
+    protected function getUniqueIdentifier(): string
     {
         if(empty($this->uniqueIdentifier)) {
             $this->uniqueIdentifier = md5($this->getWorkerSlug() . $this->getStartedTime('mysql') . uniqid(true));
@@ -196,7 +200,7 @@ class Worker {
      * Update running and start time
      * @return void
      */
-    protected function updateRunningTime() : void
+    protected function updateRunningTime(): void
     {
         set_transient(
             $this->getTransientName(),
@@ -213,7 +217,7 @@ class Worker {
      * Get name of transient
      * @return string
      */
-    protected function getTransientName() : string
+    protected function getTransientName(): string
     {
         return 'job_queue-' . $this->getWorkerSlug() . '-' . $this->getUniqueIdentifier();
     }
@@ -222,7 +226,7 @@ class Worker {
      * Fetch next job and handle it
      * @return bool
      */
-    protected function handleNextJob() : bool
+    protected function handleNextJob(): bool
     {
         global $wpdb;
         $tableName = $this->getTableName();
@@ -252,7 +256,7 @@ class Worker {
         return true;
     }
 
-    public function getJob(int $id) : object
+    public function getJob(int $id): object
     {
         global $wpdb;
         $tableName = $this->getTableName();
@@ -264,7 +268,7 @@ class Worker {
      * Flush caches:
      * WP cache, ACF cache
      */
-    protected static function flushCache() : void
+    protected static function flushCache(): void
     {
         wp_cache_flush();
 
@@ -306,7 +310,7 @@ class Worker {
      * Is a stop time set in option and is it greater than start time?
      * @return bool
      */
-    protected function shouldStop() : bool
+    protected function shouldStop(): bool
     {
         $stopTime = $this->getStopTime();
 
@@ -317,7 +321,7 @@ class Worker {
      * Get stop option name
      * @return string
      */
-    public function getStopOptionName() : string
+    public function getStopOptionName(): string
     {
         return 'job_queue-' . $this->getWorkerSlug() . '-stop';
     }
@@ -326,7 +330,7 @@ class Worker {
      * Get stop time option for queue type
      * @return mixed
      */
-    public function getStopTime() : mixed
+    public function getStopTime(): mixed
     {
         return get_option($this->getStopOptionName());
     }
@@ -335,7 +339,7 @@ class Worker {
      * Add a stop marker to the database so running jobs will stop
      * @return void
      */
-    public function stop() : void
+    public function stop(): void
     {
         update_option($this->getStopOptionName(), current_time('mysql'), false);
     }
@@ -344,7 +348,7 @@ class Worker {
      * return info about workers running (OBS: will not work if Memcache, Redis or similar is activated)
      * @return array
      */
-    public function getActiveWorkers() : array
+    public function getActiveWorkers(): array
     {
         global $wpdb;
 
@@ -376,7 +380,7 @@ class Worker {
      * Delete info about this worker
      * @return void
      */
-    public function clearQueueInfo() : void
+    public function clearQueueInfo(): void
     {
         delete_transient($this->getTransientName());
     }
@@ -394,13 +398,9 @@ class Worker {
      *
      * @return bool             true if job was successfully created
      */
-    public function createJob($callback, $arg = NULL, $date = NULL, $priority = 10) : int|false
+    public function createJob(Callable $callback, string|array|null $arg = null, ?DateTime $date = null, int $priority = 10): int|bool
     {
         global $wpdb;
-
-        if (is_a($date, 'DateTime')) {
-            $date = $date->format('Y-m-d H:i:s');
-        }
 
         $jobProps = static::prepareJob($callback, $arg, $date, $priority);
 
@@ -415,26 +415,25 @@ class Worker {
      * @param $priority
      * @return array
      */
-    protected static function prepareJob($callback, $args = array(), $date = NULL, $priority = 10) : array
+    protected static function prepareJob(Callable $callback, string|array|null $args = null, ?DateTime $date = null, int$priority = 10): array
     {
-        $component = NULL;
-        $date = (empty($date)) ? \current_time('mysql') : $date;
+        $component = null;
+
+        $date = empty($date) ? current_time('mysql') : $date->format('Y-m-d H:i:s');
 
         if (is_array($callback)) {
             $component = $callback[0];
             $callback = $callback[1];
         }
 
-        $jobProps = array(
+        return array(
             'date' => $date,
             'callback' => $callback,
             'component' => $component,
-            'args' => json_encode($args),
+            'args' => is_array($args) ? json_encode($args) : $args,
             'priority' => $priority,
             'created_date' => current_time('mysql')
         );
-
-        return $jobProps;
     }
 
     /**
