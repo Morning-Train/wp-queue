@@ -398,7 +398,7 @@ class Worker {
      *
      * @return bool             true if job was successfully created
      */
-    public function createJob(Callable $callback, string|array|null $arg = null, ?DateTime $date = null, int $priority = 10): int|bool
+    public function createJob(Callable $callback, mixed $arg = null, ?DateTime $date = null, int $priority = 10): int|bool
     {
         global $wpdb;
 
@@ -415,7 +415,7 @@ class Worker {
      * @param $priority
      * @return array
      */
-    protected static function prepareJob(Callable $callback, string|array|null $args = null, ?DateTime $date = null, int$priority = 10): array
+    protected static function prepareJob(Callable $callback, mixed $args = null, ?DateTime $date = null, int$priority = 10): array
     {
         $component = null;
 
@@ -430,7 +430,7 @@ class Worker {
             'date' => $date,
             'callback' => $callback,
             'component' => $component,
-            'args' => is_array($args) ? json_encode($args) : $args,
+            'args' => is_array($args) || is_object($args) ? json_encode($args) : $args,
             'priority' => $priority,
             'created_date' => current_time('mysql')
         );
@@ -441,7 +441,17 @@ class Worker {
      */
     public function handleJob($job, $untouched = false) : mixed
     {
-        $result = $this->doJob($job->component, $job->callback, json_decode($job->args, true));
+        $args = $job->args;
+
+        if($args !== null) {
+            $decoded_args = json_decode($args, true);
+
+            if($decoded_args !== null) {
+                $args = $decoded_args;
+            }
+        }
+
+        $result = $this->doJob($job->component, $job->callback, $args);
 
         if(is_wp_error($result)) {
             $result = $result->get_error_message();
@@ -500,6 +510,10 @@ class Worker {
     public function updateResult($id, $result) : int|false
     {
         global $wpdb;
+
+        if(is_array($result) || is_object($result)) {
+            $result = json_encode($result);
+        }
 
         return $wpdb->update($this->getTableName(), array('result' => $result, 'updated_date' => current_time('mysql')), array('id' => $id));
     }
