@@ -39,6 +39,7 @@ Install with composer.
 To get started with the module simply register a job queue `\Morningtrain\WP\Queue\Queue::registerWorker()`.
 
 You can change name of the job queue from default `job_queue`.
+You can change the version of the job queue database table from default `1.0.0`.
 
 ```php
 \Morningtrain\WP\Queue\Queue::registerWorker();

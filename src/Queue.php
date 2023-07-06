@@ -7,17 +7,17 @@ class Queue {
 
     static bool $initialized = false;
 
-    public static function registerWorker(string $workerSlug = 'job_queue') : Worker
+    public static function registerWorker(string $workerSlug = 'job_queue', string $version = '1.0.0') : Worker
     {
         static::init();
 
-        return Worker::register($workerSlug);
+        return Worker::register($workerSlug, $version);
     }
 
-    public static function registerWorkers(array $workerSlugs) : void
+    public static function registerWorkers(array $workerSlugs, string $version = '1.0.0') : void
     {
         foreach($workerSlugs as $workerSlug) {
-            static::registerWorker($workerSlug);
+            static::registerWorker($workerSlug, $version);
         }
     }
 
