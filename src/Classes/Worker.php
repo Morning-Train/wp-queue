@@ -56,11 +56,11 @@ class Worker {
         return static::getOrCreateInstance($workerSlug);
     }
 
-    public static function register(string $workerSlug): static
+    public static function register(string $workerSlug, string $version = '1.0.0'): static
     {
         $worker = static::getOrCreateInstance($workerSlug);
 
-        $worker->maybeCreateDBTable();
+        $worker->maybeCreateDBTable($version);
 
         return $worker;
     }
@@ -74,11 +74,9 @@ class Worker {
      * Maybe create DB table
      * @return void
      */
-    protected function maybeCreateDBTable(): void
+    protected function maybeCreateDBTable(string $version = '1.0.0'): void
     {
         global $wpdb;
-
-        $version = '2.0.0';
 
         if ($version == \get_option($this->getTableName() . '_db_version')) {
             return;
